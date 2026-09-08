@@ -1,9 +1,6 @@
 # Running the VQE circuits and extracting the molecular energy
 
-This guide explains what is in `outputs/` and how to turn a run of those circuits on your
-hardware into a molecular ground-state energy. It assumes no familiarity with Qiskit or with how
-the circuits were generated — everything you need is the QASM3 files themselves plus this
-document.
+This guide explains what is in `outputs/` and how to measure the molecular ground-state energy. 
 
 ## What you are being handed
 
@@ -66,49 +63,7 @@ are all measurable together ("qubit-wise commuting" groups), so each `measure_gr
 gives you, from one set of runs, several terms' worth of information at once. H2 needs 5 such
 groups; LiH needs 58 (10 qubits, more terms).
 
-Concretely: for a given group, each qubit is rotated (or left alone) so that afterwards a plain
-Z-basis measurement of that qubit gives the correct outcome for every term in the group. That is
-why the basis-rotation layer differs between `measure_group_*.qasm` files but the trailing
-measurement instructions always just measure in the computational (Z) basis.
 
-## Step-by-step protocol
-
-For each molecule:
-
-1. Open that molecule's `outputs/<molecule>/reference.md` and note:
-   - `energy_offset` (a constant, in Hartree, that gets added at the very end — it comes from
-     nuclear repulsion and, for LiH, the frozen-core energy; it needs no measurement).
-   - The list of Pauli terms + coefficients for each `measure_group_N.qasm` file.
-
-2. For each `measure_group_N.qasm` file:
-   - Run the circuit for a number of shots (a few thousand is a reasonable starting point; more
-     shots reduce statistical noise on the resulting expectation values).
-   - For every shot, record the `meas[i]` outcome (0 or 1) for every qubit `i`.
-
-3. For each Pauli term listed for that group (e.g. `+0.12091263  IIZZ`, using the file's own
-   qubit-ordering convention — see "Reading the Pauli labels" below):
-   - Identify which qubits that term is non-identity on (skip qubits marked `I`).
-   - For every shot, compute the **parity**: multiply together `(-1)^meas[i]` for each qubit `i`
-     the term acts on (i.e. +1 if an even number of those qubits measured 1, -1 if odd).
-   - Average that parity over all shots. This average is your measured expectation value
-     `<term>` for that Pauli term.
-   - A term that is `IIII` (identity on every qubit) needs no measurement at all: its expectation
-     value is always exactly `+1` by definition — just use its coefficient directly.
-
-4. Once you have `<term>` for every term in every group, compute:
-
-   ```
-   E_total = energy_offset + sum over all terms of ( coefficient * <term> )
-   ```
-
-   `E_total` is your hardware-measured estimate of the molecule's total ground-state energy, in
-   Hartree.
-
-5. Compare `E_total` against the reference energies in that molecule's `reference.md` (VQE, exact
-   diagonalization, and an independent PySCF calculation — all three agree with each other to
-   about 1e-6 to 1e-7 Hartree on the classical simulator). Your hardware result will differ from
-   these by whatever noise/imperfection your system has; that gap is itself a useful benchmark
-   number for this milestone.
 
 ## Reading the Pauli labels
 
@@ -120,30 +75,3 @@ convention only affects how you read the term strings in the `reference.md` tabl
 files themselves are indexed directly (`meas[i]` = qubit `i`), so no reversal is needed when
 processing your actual measurement data.
 
-## Worked example (H2, `measure_group_4.qasm`)
-
-H2's `measure_group_4.qasm` basis-rotates nothing (it is a pure Z-basis group) and covers, among
-others, the term `+0.12091263  IIZZ` (qubits 0 and 1) and `+0.17218393  IIIZ` (qubit 0 only).
-Suppose across 1000 shots you observe `meas[0]=1` and `meas[1]=0` in 400 of them, and other
-combinations in the rest, such that the averaged parities come out to `<IIZZ> = -0.15` and
-`<IIIZ> = 0.30` (illustrative numbers). Their contributions to the total energy are:
-
-```
-0.12091263 * (-0.15) = -0.01813690
-0.17218393 * ( 0.30) =  0.05165518
-```
-
-Every other term in every other group is treated the same way, all summed together, then
-`energy_offset` (`+0.71996899` Ha for H2) is added once at the end to get `E_total`.
-
-## Circuit size, per molecule
-
-| Molecule | Qubits | Measurement groups | `ansatz.qasm` CZ count |
-|---|---|---|---|
-| H2  | 4  | 5  | 42  |
-| LiH | 10 | 58 | 530 |
-
-H2's circuit is shallow, as expected. LiH's is not (530 two-qubit gates) — that is a genuine
-consequence of the UCCSD ansatz at this active-space size, and is worth discussing as a co-design
-topic (e.g. reducing the active space further, or a hardware-efficient ansatz) if LiH's raw
-circuit turns out to be impractical on current hardware.
