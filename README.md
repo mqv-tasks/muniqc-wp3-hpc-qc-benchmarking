@@ -63,3 +63,7 @@ uv run python scripts/run_h2.py
 uv run python scripts/run_lih.py
 ```
 
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE), consistent with the Munich Quantum Software Stack.

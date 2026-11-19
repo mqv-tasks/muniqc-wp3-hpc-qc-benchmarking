@@ -5,6 +5,8 @@ description = "VQE circuits for H2/LiH compiled to a neutral-atom native gate se
 authors = [
     { name = "Mario", email = "45944986+marhvera@users.noreply.github.com" }
 ]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=2.4.6",
