@@ -7,7 +7,7 @@ The selected application is the **Variational Quantum Eigensolver (VQE)** for qu
 Initial molecular systems considered are:
 
 * **H₂**, requiring 4 qubits in the STO-3G basis
-* **LiH**, requiring 12 qubits in the STO-3G basis
+* **LiH**, requiring 10 qubits in the STO-3G basis (Li 1s core frozen)
 
 The quantum circuits will be compiled and adapted to the native gate set of the neutral-atom platform. The native operations are based on **CZ gates and local Pauli rotations**, with local rotations typically decomposed using `SQRT(X)`, `PHI`, and `SQRT(X)` operations.
 
