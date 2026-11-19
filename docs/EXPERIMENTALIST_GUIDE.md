@@ -8,7 +8,7 @@ For each molecule (H2, LiH), we ran VQE on a classical simulator to find the cir
 prepares the molecule's ground state, then compiled that circuit to your native gate set. **The
 optimization is already done** — these are fixed circuits with numeric parameters baked in. You
 do not need to run any classical optimization loop or feedback iteration; you just execute the
-circuits below and post-process the measurement outcomes as described here. (A future phase of
+`measure_group_*.qasm` circuits in `outputs/<molecule>/` (described below) and post-process the measurement outcomes as described here. (A future phase of
 this project may involve running the optimization loop itself against your hardware — that is
 not what this delivers.)
 
