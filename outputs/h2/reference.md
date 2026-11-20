@@ -14,6 +14,21 @@ Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md
 
     energy_offset = 0.71996899 Ha
 
+## Circuit cost on hardware
+
+Every circuit is a sequence of moments separated by barriers: CZ layers (CZ gates on
+disjoint pairs, run in parallel) and single-qubit blocks [Z_1, global sqrt(X), Z_2,
+global sqrt(X), Z_3] (`gsx` = one global sqrt(X) pulse on all qubits).
+
+| File | CZ gates | CZ layers | Single-qubit blocks | Global sqrt(X) pulses |
+|------|----------|-----------|---------------------|-----------------------|
+| ansatz.qasm | 3 | 2 | 3 | 6 |
+| measure_group_0.qasm | 3 | 2 | 3 | 6 |
+| measure_group_1.qasm | 3 | 2 | 3 | 6 |
+| measure_group_2.qasm | 3 | 2 | 3 | 6 |
+| measure_group_3.qasm | 3 | 2 | 3 | 6 |
+| measure_group_4.qasm | 3 | 2 | 3 | 6 |
+
 ## Pauli terms per measurement group
 
 (qubit ordering: rightmost character = qubit 0; a group's basis label is its per-qubit measurement basis in that same ordering)

@@ -12,13 +12,31 @@ do not need to run any classical optimization loop or feedback iteration; you ju
 this project may involve running the optimization loop itself against your hardware — that is
 not what this delivers.)
 
-Every circuit is OpenQASM 3, using only your three native operations:
+Every circuit is OpenQASM 3 and follows the hardware format you specified:
 
-- `sx` — the fixed SQRT(X) pulse
-- `rz(angle)` — the free virtual Z rotation ("PHI")
-- `cz` — the entangling gate
+1. **CZ gates in parallel on pairs of qubits.** CZs on disjoint pairs are grouped into one
+   *CZ layer*, to be executed simultaneously.
+2. **Single-qubit gates as [local Z_1, global sqrt(X), local Z_2, global sqrt(X), local Z_3].**
 
-No other gates appear anywhere in these files. Qubit connectivity is assumed to be all-to-all
+Only three operations appear in the files:
+
+- `cz q[a], q[b];` — the entangling gate
+- `gsx q[0], q[1], ...;` — **one global SQRT(X) pulse on all qubits**. It is defined at the top of
+  each file as `sx` on every qubit, so standard QASM tools understand it.
+- `rz(angle) q[i];` — the local virtual Z rotation ("PHI"), with a different phase per qubit
+
+`barrier` statements split each file into *moments*, executed in order:
+
+- a **CZ layer**: only `cz` gates, each qubit used at most once;
+- a **single-qubit block**: `rz` on some qubits (Z_1), `gsx`, `rz` (Z_2), `gsx`, `rz` (Z_3). A
+  missing `rz` for a qubit means a phase of 0. Every block has exactly two global pulses.
+  Qubits with nothing to do in a block get phases that make the block the identity on them;
+- in `ansatz.qasm` only: a final layer of `rz` gates (no pulse), so the file prepares the exact
+  state.
+
+Z rotations immediately before measurement, and Z rotations on the initial |0> state, change
+nothing and have been removed. Each `reference.md` lists the CZ count, CZ layers and global pulses
+of every file. Qubit connectivity is assumed to be all-to-all
 (reasonable for a reconfigurable neutral-atom array); mapping this onto your actual physical
 layout is a follow-up co-design step, not something already handled here.
 
@@ -43,8 +61,9 @@ outputs/
   measurements. You never run this file by itself to get a result — it exists so you can
   inspect/characterize the state-preparation part of each `measure_group_*.qasm` file in
   isolation if useful (e.g. for calibration or partial tomography).
-- **`measure_group_N.qasm`** is `ansatz.qasm` followed by (a) a short layer of single-qubit basis
-  rotations and (b) a measurement of every qubit into a classical register named `meas`. This is
+- **`measure_group_N.qasm`** is the state preparation of `ansatz.qasm` followed by (a) the
+  single-qubit basis rotations for that group, merged into the last single-qubit block so they
+  cost no extra pulses, and (b) a measurement of every qubit into a classical register named `meas`. This is
   the file you actually execute, once per group, to collect data. `meas[i]` in the file is always
   the measurement outcome of qubit `i` — there is no bit-reversal or reordering to worry about;
   read the register exactly as indexed in the QASM.

@@ -1,9 +1,10 @@
-"""Run the full pipeline for H2 and export the native-gate deliverable to outputs/h2/."""
+"""Run the full pipeline for H2 and export the hardware-format deliverable to outputs/h2/."""
 
 from pathlib import Path
 
 from vqe_native.classical_reference import pyscf_fci_total_energy
 from vqe_native.measurement import build_measurement_groups
+from vqe_native.native_gates import validate_hardware_format
 from vqe_native.molecules import H2
 from vqe_native.pipeline import run_pipeline
 from vqe_native.report import write_deliverables
@@ -32,6 +33,10 @@ def main() -> None:
     print(f"H2 VQE total energy:   {result.vqe_result.vqe_total_energy:.8f} Ha")
     print(f"H2 exact total energy: {result.vqe_result.exact_total_energy:.8f} Ha")
     print(f"H2 PySCF FCI energy:   {classical_energy:.8f} Ha")
+    costs = [validate_hardware_format(g.circuit) for g in measurement_groups]
+    print(f"Measurement circuits: <= {max(c.cz_gates for c in costs)} CZ, "
+          f"<= {max(c.cz_layers for c in costs)} CZ layers, "
+          f"<= {max(c.global_sx_pulses for c in costs)} global sqrt(X) pulses")
     print(f"Wrote {1 + len(measurement_groups)} circuits + reference.md to {OUTPUT_DIR}")
 
 

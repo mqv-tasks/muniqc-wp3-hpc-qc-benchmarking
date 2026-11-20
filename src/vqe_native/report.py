@@ -2,7 +2,8 @@
 
 Usage instructions live in docs/EXPERIMENTALIST_GUIDE.md (one copy, molecule-agnostic).
 `reference.md` here is deliberately just the numbers that guide needs per molecule: energies to
-check against, the energy offset constant, and each measurement group's Pauli terms/coefficients.
+check against, the energy offset constant, each measurement group's Pauli terms/coefficients, and
+each circuit's hardware cost (CZ gates, parallel CZ layers, global sqrt(X) pulses).
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from pathlib import Path
 
 from vqe_native.hamiltonian import QubitHamiltonian
 from vqe_native.measurement import MeasurementGroup
+from vqe_native.native_gates import validate_hardware_format
 from vqe_native.qasm_export import export_qasm3
 from vqe_native.vqe_runner import VQERunResult
 
@@ -39,6 +41,11 @@ def write_deliverables(
     for group in measurement_groups:
         export_qasm3(group.circuit, output_dir / f"measure_group_{group.index}.qasm")
 
+    cost_rows = [("ansatz.qasm", validate_hardware_format(native_ansatz_circuit))] + [
+        (f"measure_group_{group.index}.qasm", validate_hardware_format(group.circuit))
+        for group in measurement_groups
+    ]
+
     lines = [
         f"# {molecule_name.upper()} - reference data",
         "",
@@ -55,6 +62,19 @@ def write_deliverables(
         "    E_total = energy_offset + sum_over_all_terms( coefficient * <term> )",
         "",
         f"    energy_offset = {hamiltonian.energy_offset:.8f} Ha",
+        "",
+        "## Circuit cost on hardware",
+        "",
+        "Every circuit is a sequence of moments separated by barriers: CZ layers (CZ gates on",
+        "disjoint pairs, run in parallel) and single-qubit blocks [Z_1, global sqrt(X), Z_2,",
+        "global sqrt(X), Z_3] (`gsx` = one global sqrt(X) pulse on all qubits).",
+        "",
+        "| File | CZ gates | CZ layers | Single-qubit blocks | Global sqrt(X) pulses |",
+        "|------|----------|-----------|---------------------|-----------------------|",
+        *(
+            f"| {name} | {cost.cz_gates} | {cost.cz_layers} | {cost.single_qubit_blocks} | {cost.global_sx_pulses} |"
+            for name, cost in cost_rows
+        ),
         "",
         "## Pauli terms per measurement group",
         "",

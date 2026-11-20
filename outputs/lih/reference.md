@@ -4,7 +4,7 @@ Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md
 
 ## Energies (Hartree)
 
-- VQE (this circuit):        -7.88217588
+- VQE (this circuit):        -7.88217599
 - Exact diagonalization (qiskit-nature qubit Hamiltonian): -7.88217599
 - Independent classical reference (PySCF CASCI (2e, 5o), matching the frozen-core active space): -7.88217599
 
@@ -13,6 +13,74 @@ Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md
     E_total = energy_offset + sum_over_all_terms( coefficient * <term> )
 
     energy_offset = -6.80295271 Ha
+
+## Circuit cost on hardware
+
+Every circuit is a sequence of moments separated by barriers: CZ layers (CZ gates on
+disjoint pairs, run in parallel) and single-qubit blocks [Z_1, global sqrt(X), Z_2,
+global sqrt(X), Z_3] (`gsx` = one global sqrt(X) pulse on all qubits).
+
+| File | CZ gates | CZ layers | Single-qubit blocks | Global sqrt(X) pulses |
+|------|----------|-----------|---------------------|-----------------------|
+| ansatz.qasm | 24 | 12 | 13 | 26 |
+| measure_group_0.qasm | 24 | 12 | 12 | 24 |
+| measure_group_1.qasm | 24 | 12 | 12 | 24 |
+| measure_group_2.qasm | 24 | 12 | 12 | 24 |
+| measure_group_3.qasm | 24 | 12 | 12 | 24 |
+| measure_group_4.qasm | 24 | 12 | 12 | 24 |
+| measure_group_5.qasm | 24 | 12 | 12 | 24 |
+| measure_group_6.qasm | 24 | 12 | 12 | 24 |
+| measure_group_7.qasm | 24 | 12 | 12 | 24 |
+| measure_group_8.qasm | 24 | 12 | 12 | 24 |
+| measure_group_9.qasm | 24 | 12 | 13 | 26 |
+| measure_group_10.qasm | 24 | 12 | 13 | 26 |
+| measure_group_11.qasm | 24 | 12 | 13 | 26 |
+| measure_group_12.qasm | 24 | 12 | 12 | 24 |
+| measure_group_13.qasm | 24 | 12 | 13 | 26 |
+| measure_group_14.qasm | 24 | 12 | 13 | 26 |
+| measure_group_15.qasm | 24 | 12 | 13 | 26 |
+| measure_group_16.qasm | 24 | 12 | 12 | 24 |
+| measure_group_17.qasm | 24 | 12 | 12 | 24 |
+| measure_group_18.qasm | 24 | 12 | 12 | 24 |
+| measure_group_19.qasm | 24 | 12 | 12 | 24 |
+| measure_group_20.qasm | 24 | 12 | 13 | 26 |
+| measure_group_21.qasm | 24 | 12 | 13 | 26 |
+| measure_group_22.qasm | 24 | 12 | 12 | 24 |
+| measure_group_23.qasm | 24 | 12 | 13 | 26 |
+| measure_group_24.qasm | 24 | 12 | 13 | 26 |
+| measure_group_25.qasm | 24 | 12 | 12 | 24 |
+| measure_group_26.qasm | 24 | 12 | 13 | 26 |
+| measure_group_27.qasm | 24 | 12 | 13 | 26 |
+| measure_group_28.qasm | 24 | 12 | 12 | 24 |
+| measure_group_29.qasm | 24 | 12 | 13 | 26 |
+| measure_group_30.qasm | 24 | 12 | 13 | 26 |
+| measure_group_31.qasm | 24 | 12 | 13 | 26 |
+| measure_group_32.qasm | 24 | 12 | 13 | 26 |
+| measure_group_33.qasm | 24 | 12 | 13 | 26 |
+| measure_group_34.qasm | 24 | 12 | 13 | 26 |
+| measure_group_35.qasm | 24 | 12 | 13 | 26 |
+| measure_group_36.qasm | 24 | 12 | 13 | 26 |
+| measure_group_37.qasm | 24 | 12 | 13 | 26 |
+| measure_group_38.qasm | 24 | 12 | 13 | 26 |
+| measure_group_39.qasm | 24 | 12 | 13 | 26 |
+| measure_group_40.qasm | 24 | 12 | 12 | 24 |
+| measure_group_41.qasm | 24 | 12 | 13 | 26 |
+| measure_group_42.qasm | 24 | 12 | 13 | 26 |
+| measure_group_43.qasm | 24 | 12 | 13 | 26 |
+| measure_group_44.qasm | 24 | 12 | 13 | 26 |
+| measure_group_45.qasm | 24 | 12 | 13 | 26 |
+| measure_group_46.qasm | 24 | 12 | 13 | 26 |
+| measure_group_47.qasm | 24 | 12 | 13 | 26 |
+| measure_group_48.qasm | 24 | 12 | 13 | 26 |
+| measure_group_49.qasm | 24 | 12 | 13 | 26 |
+| measure_group_50.qasm | 24 | 12 | 13 | 26 |
+| measure_group_51.qasm | 24 | 12 | 13 | 26 |
+| measure_group_52.qasm | 24 | 12 | 13 | 26 |
+| measure_group_53.qasm | 24 | 12 | 13 | 26 |
+| measure_group_54.qasm | 24 | 12 | 13 | 26 |
+| measure_group_55.qasm | 24 | 12 | 13 | 26 |
+| measure_group_56.qasm | 24 | 12 | 13 | 26 |
+| measure_group_57.qasm | 24 | 12 | 13 | 26 |
 
 ## Pauli terms per measurement group
 
