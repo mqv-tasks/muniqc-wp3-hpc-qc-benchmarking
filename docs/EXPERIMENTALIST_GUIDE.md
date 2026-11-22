@@ -8,7 +8,7 @@ For each molecule (H2, LiH), we ran VQE on a classical simulator to find the cir
 prepares the molecule's ground state, then compiled that circuit to your native gate set. **The
 optimization is already done** — these are fixed circuits with numeric parameters baked in. You
 do not need to run any classical optimization loop or feedback iteration; you just execute the
-`measure_group_*.qasm` circuits in `outputs/<molecule>/` (described below) and post-process the measurement outcomes as described here. (A future phase of
+`measure_group_*.qasm` circuits in `outputs/<ansatz>/<molecule>/` (described below) and post-process the measurement outcomes as described here. (A future phase of
 this project may involve running the optimization loop itself against your hardware — that is
 not what this delivers.)
 
@@ -40,21 +40,38 @@ of every file. Qubit connectivity is assumed to be all-to-all
 (reasonable for a reconfigurable neutral-atom array); mapping this onto your actual physical
 layout is a follow-up co-design step, not something already handled here.
 
+## Which circuits to run
+
+The same molecules are delivered with three ansätze (circuit families). All three prepare the
+same ground state and give the same energy; they differ only in circuit depth:
+
+| Folder | Ansatz | CZ layers per circuit (H2 / LiH) |
+|---|---|---|
+| `outputs/pair/` | compact 2-electron pair ansatz | 2 / 12 |
+| `outputs/uccsd-pennylane/` | UCCSD with PennyLane's compact excitation gates | 11 / 153 |
+| `outputs/uccsd-qiskit/` | UCCSD from qiskit-nature (the original method) | 42 / 507 |
+
+**Start with `outputs/pair/`.** The other two are there for comparison (same ansatz family as the
+first delivery). `outputs/v1_sent_to_experiment/` holds the first delivery, unchanged, in the old
+per-qubit gate format; it is not meant to be run in the new format.
+
 ## Directory layout
 
 ```
 outputs/
-  h2/
-    reference.md                # auto-generated numeric details for this molecule (see below)
-    ansatz.qasm               # the converged state-preparation circuit, no measurement
-    measure_group_0.qasm       # ansatz.qasm + a basis rotation + measurement
-    measure_group_1.qasm
-    ...
-  lih/
-    reference.md
-    ansatz.qasm
-    measure_group_0.qasm
-    ...
+  pair/                        # also: uccsd-pennylane/, uccsd-qiskit/ (same structure)
+    h2/
+      reference.md             # auto-generated numeric details for this molecule (see below)
+      ansatz.qasm              # the converged state-preparation circuit, no measurement
+      measure_group_0.qasm     # state preparation + a basis rotation + measurement
+      measure_group_1.qasm
+      ...
+    lih/
+      reference.md
+      ansatz.qasm
+      measure_group_0.qasm
+      ...
+  v1_sent_to_experiment/       # first delivery, frozen
 ```
 
 - **`ansatz.qasm`** prepares the (approximate) ground state on the qubits. It has no

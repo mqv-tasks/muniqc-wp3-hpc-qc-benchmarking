@@ -1,6 +1,8 @@
-# LIH - reference data
+# LIH - reference data (pair)
 
-Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md
+Usage instructions: ../../../docs/EXPERIMENTALIST_GUIDE.md
+
+Ansatz: `pair`: 2-electron pair ansatz (split / copy / orbital rotation) - exact for 2 active electrons.
 
 ## Energies (Hartree)
 

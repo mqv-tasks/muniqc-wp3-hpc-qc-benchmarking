@@ -313,9 +313,13 @@ def assert_same_measurement_distribution(original: QuantumCircuit, compiled: Qua
     """Verify two circuits give the same computational-basis outcome probabilities.
 
     Used for measurement circuits, where Z rotations before measurement are legitimately dropped.
+    Compares the classical fidelity (sum_i sqrt(p_i q_i))^2 with the same 1 - 1e-9 threshold as
+    ``assert_statevector_equivalent``. (A total-variation threshold of ~1e-9 is stricter than
+    floating-point gate synthesis allows: a state infidelity of 1e-14 already means amplitude
+    errors of ~1e-7.)
     """
     p_original = Statevector(original.remove_final_measurements(inplace=False)).probabilities()
     p_compiled = Statevector(compiled.remove_final_measurements(inplace=False)).probabilities()
-    distance = 0.5 * float(np.abs(p_original - p_compiled).sum())
-    if distance > 1e-9:
-        raise ValueError(f"Measurement distributions differ (total variation distance {distance:.2e})")
+    fidelity = float(np.sum(np.sqrt(p_original * p_compiled))) ** 2
+    if fidelity < 1 - 1e-9:
+        raise ValueError(f"Measurement distributions differ (classical fidelity {fidelity})")

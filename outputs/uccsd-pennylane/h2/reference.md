@@ -1,6 +1,8 @@
-# H2 - reference data
+# H2 - reference data (uccsd-pennylane)
 
-Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md
+Usage instructions: ../../../docs/EXPERIMENTALIST_GUIDE.md
+
+Ansatz: `uccsd-pennylane`: UCCSD excitations built with PennyLane's excitation gates - any molecule.
 
 ## Energies (Hartree)
 
@@ -22,12 +24,12 @@ global sqrt(X), Z_3] (`gsx` = one global sqrt(X) pulse on all qubits).
 
 | File | CZ gates | CZ layers | Single-qubit blocks | Global sqrt(X) pulses |
 |------|----------|-----------|---------------------|-----------------------|
-| ansatz.qasm | 3 | 2 | 3 | 6 |
-| measure_group_0.qasm | 3 | 2 | 3 | 6 |
-| measure_group_1.qasm | 3 | 2 | 3 | 6 |
-| measure_group_2.qasm | 3 | 2 | 3 | 6 |
-| measure_group_3.qasm | 3 | 2 | 3 | 6 |
-| measure_group_4.qasm | 3 | 2 | 3 | 6 |
+| ansatz.qasm | 13 | 11 | 11 | 22 |
+| measure_group_0.qasm | 13 | 11 | 11 | 22 |
+| measure_group_1.qasm | 13 | 11 | 11 | 22 |
+| measure_group_2.qasm | 13 | 11 | 11 | 22 |
+| measure_group_3.qasm | 13 | 11 | 11 | 22 |
+| measure_group_4.qasm | 13 | 11 | 11 | 22 |
 
 ## Pauli terms per measurement group
 

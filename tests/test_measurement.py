@@ -39,11 +39,6 @@ def _reconstruct_energy(measurement_groups, energy_offset: float) -> float:
     return total
 
 
-def test_h2_measurement_circuits_reconstruct_vqe_energy(h2_pipeline, h2_measurement_groups):
-    reconstructed = _reconstruct_energy(h2_measurement_groups, h2_pipeline.hamiltonian.energy_offset)
-    assert abs(reconstructed - h2_pipeline.vqe_result.vqe_total_energy) < EXACT_DIAGONALIZATION_TOLERANCE_HA
-
-
-def test_lih_measurement_circuits_reconstruct_vqe_energy(lih_pipeline, lih_measurement_groups):
-    reconstructed = _reconstruct_energy(lih_measurement_groups, lih_pipeline.hamiltonian.energy_offset)
-    assert abs(reconstructed - lih_pipeline.vqe_result.vqe_total_energy) < EXACT_DIAGONALIZATION_TOLERANCE_HA
+def test_measurement_circuits_reconstruct_vqe_energy(result, groups):
+    reconstructed = _reconstruct_energy(groups, result.hamiltonian.energy_offset)
+    assert abs(reconstructed - result.vqe_result.vqe_total_energy) < EXACT_DIAGONALIZATION_TOLERANCE_HA

@@ -8,13 +8,14 @@
 committed QASM files, and on random circuits, and check it rejects circuits that break a rule.
 """
 
+import hashlib
 from pathlib import Path
 
 import numpy as np
 import pytest
 from qiskit import QuantumCircuit, qasm3
 from qiskit.circuit.random import random_circuit
-from qiskit.quantum_info import Operator, random_unitary
+from qiskit.quantum_info import Operator, Statevector, random_unitary, state_fidelity
 
 from vqe_native.native_gates import (
     _SX,
@@ -28,27 +29,44 @@ from vqe_native.native_gates import (
 )
 
 OUTPUTS = Path(__file__).resolve().parent.parent / "outputs"
+V1 = OUTPUTS / "v1_sent_to_experiment"
 
-# Regression ceilings for the delivered circuits (CZ layers dominate the hardware cost).
-H2_MAX_CZ_LAYERS = 2
-LIH_MAX_CZ_LAYERS = 12
-
-
-def test_h2_circuits_follow_hardware_format(h2_pipeline, h2_measurement_groups):
-    circuits = [h2_pipeline.native_ansatz_circuit] + [g.circuit for g in h2_measurement_groups]
-    for circuit in circuits:
-        assert validate_hardware_format(circuit).cz_layers <= H2_MAX_CZ_LAYERS
+# Regression ceilings on CZ layers (the dominant hardware cost) for the pair ansatz.
+PAIR_MAX_CZ_LAYERS = {"h2": 2, "lih": 12}
 
 
-def test_lih_circuits_follow_hardware_format(lih_pipeline, lih_measurement_groups):
-    circuits = [lih_pipeline.native_ansatz_circuit] + [g.circuit for g in lih_measurement_groups]
-    for circuit in circuits:
-        assert validate_hardware_format(circuit).cz_layers <= LIH_MAX_CZ_LAYERS
+def test_pipeline_circuits_follow_hardware_format(case, result, groups):
+    molecule, ansatz = case
+    for circuit in [result.native_ansatz_circuit] + [g.circuit for g in groups]:
+        cost = validate_hardware_format(circuit)
+        if ansatz == "pair":
+            assert cost.cz_layers <= PAIR_MAX_CZ_LAYERS[molecule]
 
 
-@pytest.mark.parametrize("path", sorted(OUTPUTS.glob("*/*.qasm")), ids=lambda p: f"{p.parent.name}/{p.name}")
+GENERATED_QASM = sorted(p for p in OUTPUTS.glob("*/*/*.qasm") if V1 not in p.parents)
+
+
+@pytest.mark.parametrize("path", GENERATED_QASM, ids=lambda p: str(p.relative_to(OUTPUTS)))
 def test_committed_qasm_files_follow_hardware_format(path):
     validate_hardware_format(qasm3.load(path))
+
+
+# --- The first delivery is kept frozen, and the uccsd-qiskit ansatz must still reproduce it. ---
+
+
+def test_v1_files_are_unchanged():
+    for line in (V1 / "SHA256SUMS").read_text().splitlines():
+        expected, name = line.split(maxsplit=1)
+        assert hashlib.sha256((V1 / name).read_bytes()).hexdigest() == expected, name
+
+
+@pytest.mark.parametrize("molecule", ["h2", "lih"])
+def test_uccsd_qiskit_reproduces_the_v1_state(molecule):
+    from conftest import cached_pipeline
+
+    v1_state = Statevector(qasm3.load(V1 / molecule / "ansatz.qasm"))
+    new_state = Statevector(cached_pipeline(molecule, "uccsd-qiskit").vqe_result.bound_circuit)
+    assert state_fidelity(v1_state, new_state) > 1 - 1e-9
 
 
 def test_zsxzsxz_decomposition_of_random_unitaries():

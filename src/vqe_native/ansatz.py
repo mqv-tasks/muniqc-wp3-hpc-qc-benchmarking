@@ -1,7 +1,25 @@
-"""Compact, hardware-friendly ansatz for two electrons in a singlet (one alpha + one beta).
+"""The three ansatz options of the pipeline, selectable by name (see ``ANSATZE``).
 
-Both target problems reduce to exactly this case: H2 (STO-3G) and LiH with the Li 1s core frozen
-(2 active electrons). Any such ground state can be written as
+==================  ==========================================================  ===============
+name                what it is                                                  scope
+==================  ==========================================================  ===============
+``uccsd-qiskit``    qiskit-nature UCCSD on Hartree-Fock: the original method    any molecule
+                    (identical to the circuits first sent to the experiment)
+``uccsd-pennylane`` the same UCCSD excitations (same list, same order), each    any molecule
+                    built with PennyLane's compact excitation gates
+``pair``            compact 2-electron pair ansatz (split / copy / rotate)      2 active
+                                                                                electrons only
+==================  ==========================================================  ===============
+
+All three start from |0...0>, prepare Hartree-Fock at zero parameters, use the same
+Jordan-Wigner qubit layout as the Hamiltonian, and reach the exact ground-state energy for H2 and
+frozen-core LiH. They differ in circuit depth: compiled to the hardware format, LiH needs about
+507, 153 and 12 CZ layers respectively.
+
+Pair ansatz (``pair``)
+----------------------
+Both target problems have two active electrons (H2 in STO-3G; LiH with the Li 1s core frozen).
+Any such singlet ground state can be written as
 
     |psi> = sum_ij C_ij |alpha_i> |beta_j>,     C real symmetric (singlet, real orbitals),
 
@@ -24,15 +42,20 @@ spin-orbitals, n..2n-1 the beta ones. Within a register that holds exactly one e
 parity string between the two modes of a Givens rotation only crosses empty modes, so these
 two-qubit rotations equal the fermionic ones.
 
-Compared with UCCSD compiled gate by gate, this needs far fewer CZ layers (H2: 2 instead of 42,
-LiH: ~12 instead of ~500), because UCCSD's excitation operators are each compiled into long
-CNOT ladders that must be correct for every input state, not just for |0...0>.
+The pair ansatz is much shorter than UCCSD because it only has to prepare one state from
+|0...0>, while a UCCSD circuit implements each excitation operator for every possible input.
+It is exact only for two active electrons (LiH qualifies because its Li 1s core is frozen).
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Callable
+
 from qiskit.circuit import ParameterVector, QuantumCircuit
 from qiskit.circuit.library import XXPlusYYGate
+from qiskit_nature.second_q.circuit.library import UCCSD, HartreeFock
+from qiskit_nature.second_q.mappers import JordanWignerMapper
 
 from vqe_native.hamiltonian import QubitHamiltonian
 
@@ -133,3 +156,93 @@ def drop_zero_rotations(circuit: QuantumCircuit) -> QuantumCircuit:
                 continue
         pruned.append(instruction)
     return pruned
+
+
+# --------------------------------------------------------------------------------------------
+# UCCSD ansätze
+# --------------------------------------------------------------------------------------------
+
+
+def _hartree_fock(hamiltonian: QubitHamiltonian) -> HartreeFock:
+    return HartreeFock(hamiltonian.num_spatial_orbitals, hamiltonian.num_particles, JordanWignerMapper())
+
+
+def build_uccsd_qiskit(hamiltonian: QubitHamiltonian) -> QuantumCircuit:
+    """qiskit-nature UCCSD (singles + doubles) on Hartree-Fock: the original method.
+
+    Uses the same Jordan-Wigner mapper as the Hamiltonian, so the excitation operators act on the
+    same qubit encoding as ``hamiltonian.operator``.
+    """
+    return UCCSD(
+        hamiltonian.num_spatial_orbitals,
+        hamiltonian.num_particles,
+        JordanWignerMapper(),
+        initial_state=_hartree_fock(hamiltonian),
+    )
+
+
+def build_uccsd_pennylane(hamiltonian: QubitHamiltonian) -> QuantumCircuit:
+    """UCCSD with PennyLane's excitation gates: same excitations, same order as ``uccsd-qiskit``.
+
+    The excitation list is taken from qiskit-nature's UCCSD itself, so both UCCSD variants have
+    exactly the same parameters (one per excitation). Each excitation is then built with
+    PennyLane's ``SingleExcitation`` / ``DoubleExcitation`` decomposition instead of qiskit-nature's
+    Pauli-string exponentials. See ``vqe_native.pennylane_gates`` for the caveat on parity strings.
+    """
+    from vqe_native.pennylane_gates import append_double_excitation, append_single_excitation
+
+    reference = build_uccsd_qiskit(hamiltonian)
+    excitations = reference.excitation_list
+    params = ParameterVector("theta", len(excitations))
+    circuit = QuantumCircuit(reference.num_qubits, name="uccsd_pennylane")
+    circuit.compose(_hartree_fock(hamiltonian), inplace=True)
+    for theta, (occupied, virtual) in zip(params, excitations):
+        if len(occupied) == 1:
+            append_single_excitation(circuit, theta, occupied[0], virtual[0])
+        elif len(occupied) == 2:
+            append_double_excitation(circuit, theta, occupied, virtual)
+        else:  # pragma: no cover - UCCSD only has singles and doubles
+            raise ValueError(f"Unsupported excitation order: {occupied} -> {virtual}")
+    return circuit
+
+
+# --------------------------------------------------------------------------------------------
+# Registry
+# --------------------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AnsatzSpec:
+    name: str
+    description: str  # one line, written into reference.md
+    build: Callable[[QubitHamiltonian], QuantumCircuit]
+    tight_convergence: bool  # SLSQP ftol=1e-12 instead of the default 1e-6
+    prune: bool  # remove parameters that converge to ~0 and re-optimize
+
+
+ANSATZE: dict[str, AnsatzSpec] = {
+    spec.name: spec
+    for spec in (
+        AnsatzSpec(
+            name="uccsd-qiskit",
+            description="UCCSD (qiskit-nature) on Hartree-Fock - the original method, any molecule",
+            build=build_uccsd_qiskit,
+            tight_convergence=False,  # exactly as in the first delivery
+            prune=False,
+        ),
+        AnsatzSpec(
+            name="uccsd-pennylane",
+            description="UCCSD excitations built with PennyLane's excitation gates - any molecule",
+            build=build_uccsd_pennylane,
+            tight_convergence=True,
+            prune=False,
+        ),
+        AnsatzSpec(
+            name="pair",
+            description="2-electron pair ansatz (split / copy / orbital rotation) - exact for 2 active electrons",
+            build=build_pair_ansatz,
+            tight_convergence=True,
+            prune=True,
+        ),
+    )
+}

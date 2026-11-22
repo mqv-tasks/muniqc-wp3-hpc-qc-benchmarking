@@ -27,6 +27,8 @@ def _format_pauli_terms(group: MeasurementGroup) -> list[str]:
 def write_deliverables(
     *,
     molecule_name: str,
+    ansatz_name: str,
+    ansatz_description: str,
     native_ansatz_circuit,
     hamiltonian: QubitHamiltonian,
     vqe_result: VQERunResult,
@@ -47,9 +49,11 @@ def write_deliverables(
     ]
 
     lines = [
-        f"# {molecule_name.upper()} - reference data",
+        f"# {molecule_name.upper()} - reference data ({ansatz_name})",
         "",
-        "Usage instructions: ../../docs/EXPERIMENTALIST_GUIDE.md",
+        "Usage instructions: ../../../docs/EXPERIMENTALIST_GUIDE.md",
+        "",
+        f"Ansatz: `{ansatz_name}`: {ansatz_description}.",
         "",
         "## Energies (Hartree)",
         "",

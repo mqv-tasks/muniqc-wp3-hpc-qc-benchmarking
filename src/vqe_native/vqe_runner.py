@@ -34,44 +34,60 @@ class VQERunResult:
     exact_total_energy: float
 
 
-def _minimize(hamiltonian: QubitHamiltonian, ansatz: QuantumCircuit, initial_point: np.ndarray):
+def _minimize(hamiltonian: QubitHamiltonian, ansatz: QuantumCircuit, initial_point: np.ndarray, tight: bool):
     """VQE with an exact statevector estimator (no shot noise, no hardware noise).
 
-    SLSQP's default tolerance (ftol=1e-6) stops LiH ~0.5 mHa above the ground state; a tight
-    tolerance lets it converge to the exact energy.
+    ``tight=False`` uses SLSQP's defaults, exactly as in the first delivery. ``tight=True`` uses
+    ftol=1e-12: with the default (1e-6) the pair ansatz stops ~0.5 mHa above the LiH ground state.
     """
-    vqe = VQE(StatevectorEstimator(), ansatz, SLSQP(maxiter=5000, ftol=1e-12), initial_point=initial_point)
+    optimizer = SLSQP(maxiter=5000, ftol=1e-12) if tight else SLSQP()
+    vqe = VQE(StatevectorEstimator(), ansatz, optimizer, initial_point=initial_point)
     return vqe.compute_minimum_eigenvalue(hamiltonian.operator)
 
 
-def run_vqe(hamiltonian: QubitHamiltonian, ansatz: QuantumCircuit) -> VQERunResult:
-    """Run VQE, prune parameters that converge to ~0, re-optimize, and bind the result.
+def run_vqe(
+    hamiltonian: QubitHamiltonian, ansatz: QuantumCircuit, *, tight_convergence: bool, prune: bool
+) -> VQERunResult:
+    """Run VQE from all-zero parameters (Hartree-Fock) and bind the optimum into the ansatz.
 
-    This is the classical pre-optimization step. Pruning matters because the ansatz is slightly
-    over-parameterized: some rotations are forbidden by molecular symmetry and others are
-    redundant, and they converge to small but nonzero values (1e-6 .. 1e-4) that would still
-    cost CZ gates on hardware. ``NumPyMinimumEigensolver`` on the same qubit operator checks that
-    VQE reached the ground state (an independent PySCF cross-check is in ``classical_reference.py``).
+    This is the classical pre-optimization step. With ``prune=True``, parameters that converge to
+    ~0 are removed and VQE is re-run on the smaller circuit: some rotations of the pair ansatz are
+    forbidden by molecular symmetry or redundant, and converge to small nonzero values
+    (1e-6 .. 1e-4) that would still cost CZ gates on hardware. ``NumPyMinimumEigensolver`` on the
+    same qubit operator checks that VQE reached the ground state (an independent PySCF cross-check
+    is in ``classical_reference.py``).
     """
-    full = _minimize(hamiltonian, ansatz, np.zeros(ansatz.num_parameters))
-    values = np.asarray(full.optimal_point)
+    full = _minimize(hamiltonian, ansatz, np.zeros(ansatz.num_parameters), tight_convergence)
+    exact_result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(hamiltonian.operator)
+    exact_total_energy = exact_result.eigenvalue.real + hamiltonian.energy_offset
 
+    if not prune:
+        return VQERunResult(
+            bound_circuit=ansatz.assign_parameters(full.optimal_point),
+            optimal_parameters=np.asarray(full.optimal_point),
+            num_pruned_parameters=0,
+            vqe_total_energy=full.eigenvalue.real + hamiltonian.energy_offset,
+            exact_total_energy=exact_total_energy,
+        )
+
+    values = np.asarray(full.optimal_point)
     small = {p: 0.0 for p, v in zip(ansatz.parameters, values) if abs(v) < PRUNE_ANGLE_TOLERANCE}
     reduced_ansatz = drop_zero_rotations(ansatz.assign_parameters(small))
     kept_values = np.array([v for p, v in zip(ansatz.parameters, values) if p not in small])
-    reduced = _minimize(hamiltonian, reduced_ansatz, kept_values) if reduced_ansatz.num_parameters else full
-
+    reduced = (
+        _minimize(hamiltonian, reduced_ansatz, kept_values, tight_convergence)
+        if reduced_ansatz.num_parameters
+        else full
+    )
     if reduced.eigenvalue.real - full.eigenvalue.real > PRUNE_ENERGY_TOLERANCE_HA:
         raise ValueError(
             f"Pruning {len(small)} parameters raised the energy by "
             f"{reduced.eigenvalue.real - full.eigenvalue.real:.2e} Ha"
         )
-
-    exact_result = NumPyMinimumEigensolver().compute_minimum_eigenvalue(hamiltonian.operator)
     return VQERunResult(
         bound_circuit=reduced_ansatz.assign_parameters(reduced.optimal_point),
         optimal_parameters=np.asarray(reduced.optimal_point),
         num_pruned_parameters=len(small),
         vqe_total_energy=reduced.eigenvalue.real + hamiltonian.energy_offset,
-        exact_total_energy=exact_result.eigenvalue.real + hamiltonian.energy_offset,
+        exact_total_energy=exact_total_energy,
     )
