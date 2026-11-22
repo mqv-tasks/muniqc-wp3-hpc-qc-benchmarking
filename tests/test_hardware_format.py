@@ -28,6 +28,8 @@ from vqe_native.native_gates import (
     zsxzsxz_angles,
 )
 
+from conftest import cached_pipeline, is_slow
+
 OUTPUTS = Path(__file__).resolve().parent.parent / "outputs"
 V1 = OUTPUTS / "v1_sent_to_experiment"
 
@@ -43,10 +45,15 @@ def test_pipeline_circuits_follow_hardware_format(case, result, groups):
             assert cost.cz_layers <= PAIR_MAX_CZ_LAYERS[molecule]
 
 
-GENERATED_QASM = sorted(p for p in OUTPUTS.glob("*/*/*.qasm") if V1 not in p.parents)
+GENERATED_QASM = [
+    # outputs/<ansatz>/<molecule>/<file>.qasm; the large LiH UCCSD files are slow to load
+    pytest.param(p, id=str(p.relative_to(OUTPUTS)), marks=[pytest.mark.slow] if is_slow(p.parent.name, p.parent.parent.name) else [])
+    for p in sorted(OUTPUTS.glob("*/*/*.qasm"))
+    if V1 not in p.parents
+]
 
 
-@pytest.mark.parametrize("path", GENERATED_QASM, ids=lambda p: str(p.relative_to(OUTPUTS)))
+@pytest.mark.parametrize("path", GENERATED_QASM)
 def test_committed_qasm_files_follow_hardware_format(path):
     validate_hardware_format(qasm3.load(path))
 
@@ -60,10 +67,8 @@ def test_v1_files_are_unchanged():
         assert hashlib.sha256((V1 / name).read_bytes()).hexdigest() == expected, name
 
 
-@pytest.mark.parametrize("molecule", ["h2", "lih"])
+@pytest.mark.parametrize("molecule", ["h2", pytest.param("lih", marks=pytest.mark.slow)])
 def test_uccsd_qiskit_reproduces_the_v1_state(molecule):
-    from conftest import cached_pipeline
-
     v1_state = Statevector(qasm3.load(V1 / molecule / "ansatz.qasm"))
     new_state = Statevector(cached_pipeline(molecule, "uccsd-qiskit").vqe_result.bound_circuit)
     assert state_fidelity(v1_state, new_state) > 1 - 1e-9

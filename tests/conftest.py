@@ -2,6 +2,13 @@
 
 Pipelines are cached, so each (molecule, ansatz) VQE runs only once per test session.
 The 'uccsd-pennylane' cases are skipped if PennyLane is not installed (uv sync --extra pennylane).
+
+Two levels:
+
+    uv run pytest            # fast (about 30 s): everything except the tests marked slow
+    uv run pytest --full     # everything (about 25 min)
+
+Tests marked ``slow`` are those for LiH with the two UCCSD ansätze (long VQE, ~500-CZ circuits).
 """
 
 import functools
@@ -24,6 +31,28 @@ LIH_ACTIVE_ORBITALS = 5
 LIH_ACTIVE_ELECTRONS = 2
 
 
+def pytest_addoption(parser):
+    parser.addoption("--full", action="store_true", help="also run the slow tests (about 25 min in total)")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: long test, only run with --full")
+
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--full"):
+        return
+    skip_slow = pytest.mark.skip(reason="slow test: run with --full")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(skip_slow)
+
+
+def is_slow(molecule: str, ansatz: str) -> bool:
+    """LiH with a UCCSD ansatz: long VQE and ~500-CZ circuits."""
+    return molecule == "lih" and ansatz != "pair"
+
+
 @functools.cache
 def cached_pipeline(molecule: str, ansatz: str):
     return run_pipeline(MOLECULES[molecule], ansatz)
@@ -43,7 +72,7 @@ def classical_energy(molecule: str) -> float:
 
 
 def _case_param(molecule: str, ansatz: str):
-    marks = []
+    marks = [pytest.mark.slow] if is_slow(molecule, ansatz) else []
     if ansatz == "uccsd-pennylane" and not HAS_PENNYLANE:
         marks.append(pytest.mark.skip(reason="PennyLane not installed: uv sync --extra pennylane"))
     return pytest.param((molecule, ansatz), id=f"{molecule}-{ansatz}", marks=marks)

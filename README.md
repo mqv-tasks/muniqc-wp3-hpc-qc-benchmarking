@@ -71,7 +71,7 @@ Barriers separate the circuit into *moments*. Each moment is either a CZ layer o
 - `docs/EXPERIMENTALIST_GUIDE.md`: instructions for the experimental team: what each file is and how to run the measurement circuits.
 - `src/vqe_native/`: the generation pipeline (molecule → qubit Hamiltonian → ansatz → VQE → hardware-format compilation → measurement grouping → QASM 3 export). The three ansätze are defined in `ansatz.py`; PennyLane's gates are translated into Qiskit in `pennylane_gates.py`.
 - `scripts/run_h2.py`, `scripts/run_lih.py`: run the full pipeline for each molecule. `scripts/summarize_outputs.py` prints the comparison table above from the committed files.
-- `tests/`: pytest suite, run for every molecule and ansatz. It checks qubit counts, VQE against both classical references, the hardware format (pipeline circuits, committed QASM files, random circuits), that the measurement circuits reconstruct the energy, that PennyLane's gates are translated exactly, and that the first delivery is unchanged and still reproduced.
+- `tests/`: pytest suite, run for every molecule and ansatz. The default run (about 30 s) skips the slow LiH UCCSD cases; `--full` runs everything. It checks qubit counts, VQE against both classical references, the hardware format (pipeline circuits, committed QASM files, random circuits), that the measurement circuits reconstruct the energy, that PennyLane's gates are translated exactly, and that the first delivery is unchanged and still reproduced.
 
 ## Regenerating the circuits (optional)
 
@@ -79,7 +79,8 @@ The circuits in `outputs/` are already generated; you only need this to reproduc
 
 ```bash
 uv sync --extra pennylane                                   # Qiskit + PennyLane (all three ansätze)
-uv run pytest                                               # several minutes, mostly the uccsd-qiskit LiH VQE
+uv run pytest                                               # fast checks, about 30 s
+uv run pytest --full                                        # everything, about 25 min (adds LiH with both UCCSD ansätze)
 uv run python scripts/run_h2.py                             # all three ansätze
 uv run python scripts/run_lih.py --ansatz pair              # or just one
 uv run python scripts/summarize_outputs.py                  # comparison table
