@@ -1,7 +1,7 @@
 [project]
 name = "vqe-native"
 version = "0.1.0"
-description = "VQE circuits for H2/LiH compiled to a neutral-atom native gate set (CZ + local Paulis)"
+description = "VQE circuits for H2/LiH compiled to a neutral-atom hardware format (parallel CZ layers + global sqrt(X) with local Z)"
 authors = [
     { name = "Mario", email = "45944986+marhvera@users.noreply.github.com" }
 ]
@@ -18,6 +18,11 @@ dependencies = [
     "scipy>=1.17.1",
 ]
 
+[project.optional-dependencies]
+pennylane = [
+    "pennylane>=0.45.1",
+]
+
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]
 build-backend = "uv_build"
@@ -25,4 +30,5 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "qiskit-qasm3-import>=0.6.0",
 ]

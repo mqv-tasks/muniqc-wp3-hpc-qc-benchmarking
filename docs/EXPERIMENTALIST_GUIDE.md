@@ -8,43 +8,79 @@ For each molecule (H2, LiH), we ran VQE on a classical simulator to find the cir
 prepares the molecule's ground state, then compiled that circuit to your native gate set. **The
 optimization is already done** — these are fixed circuits with numeric parameters baked in. You
 do not need to run any classical optimization loop or feedback iteration; you just execute the
-`measure_group_*.qasm` circuits in `outputs/<molecule>/` (described below) and post-process the measurement outcomes as described here. (A future phase of
+`measure_group_*.qasm` circuits in `outputs/<ansatz>/<molecule>/` (described below) and post-process the measurement outcomes as described here. (A future phase of
 this project may involve running the optimization loop itself against your hardware — that is
 not what this delivers.)
 
-Every circuit is OpenQASM 3, using only your three native operations:
+Every circuit is OpenQASM 3 and follows the hardware format you specified:
 
-- `sx` — the fixed SQRT(X) pulse
-- `rz(angle)` — the free virtual Z rotation ("PHI")
-- `cz` — the entangling gate
+1. **CZ gates in parallel on pairs of qubits.** CZs on disjoint pairs are grouped into one
+   *CZ layer*, to be executed simultaneously.
+2. **Single-qubit gates as [local Z_1, global sqrt(X), local Z_2, global sqrt(X), local Z_3].**
 
-No other gates appear anywhere in these files. Qubit connectivity is assumed to be all-to-all
+Only three operations appear in the files:
+
+- `cz q[a], q[b];` — the entangling gate
+- `gsx q[0], q[1], ...;` — **one global SQRT(X) pulse on all qubits**. It is defined at the top of
+  each file as `sx` on every qubit, so standard QASM tools understand it.
+- `rz(angle) q[i];` — the local virtual Z rotation ("PHI"), with a different phase per qubit
+
+`barrier` statements split each file into *moments*, executed in order:
+
+- a **CZ layer**: only `cz` gates, each qubit used at most once;
+- a **single-qubit block**: `rz` on some qubits (Z_1), `gsx`, `rz` (Z_2), `gsx`, `rz` (Z_3). A
+  missing `rz` for a qubit means a phase of 0. Every block has exactly two global pulses.
+  Qubits with nothing to do in a block get phases that make the block the identity on them;
+- in `ansatz.qasm` only: a final layer of `rz` gates (no pulse), so the file prepares the exact
+  state.
+
+Z rotations immediately before measurement, and Z rotations on the initial |0> state, change
+nothing and have been removed. Each `reference.md` lists the CZ count, CZ layers and global pulses
+of every file. Qubit connectivity is assumed to be all-to-all
 (reasonable for a reconfigurable neutral-atom array); mapping this onto your actual physical
 layout is a follow-up co-design step, not something already handled here.
+
+## Which circuits to run
+
+The same molecules are delivered with three ansätze (circuit families). All three prepare the
+same ground state and give the same energy; they differ only in circuit depth:
+
+| Folder | Ansatz | CZ layers per circuit (H2 / LiH) |
+|---|---|---|
+| `outputs/pair/` | compact 2-electron pair ansatz | 2 / 12 |
+| `outputs/uccsd-pennylane/` | UCCSD with PennyLane's compact excitation gates | 11 / 153 |
+| `outputs/uccsd-qiskit/` | UCCSD from qiskit-nature (the original method) | 42 / 507 |
+
+**Start with `outputs/pair/`.** The other two are there for comparison (same ansatz family as the
+first delivery). `outputs/v1_sent_to_experiment/` holds the first delivery, unchanged, in the old
+per-qubit gate format; it is not meant to be run in the new format.
 
 ## Directory layout
 
 ```
 outputs/
-  h2/
-    reference.md                # auto-generated numeric details for this molecule (see below)
-    ansatz.qasm               # the converged state-preparation circuit, no measurement
-    measure_group_0.qasm       # ansatz.qasm + a basis rotation + measurement
-    measure_group_1.qasm
-    ...
-  lih/
-    reference.md
-    ansatz.qasm
-    measure_group_0.qasm
-    ...
+  pair/                        # also: uccsd-pennylane/, uccsd-qiskit/ (same structure)
+    h2/
+      reference.md             # auto-generated numeric details for this molecule (see below)
+      ansatz.qasm              # the converged state-preparation circuit, no measurement
+      measure_group_0.qasm     # state preparation + a basis rotation + measurement
+      measure_group_1.qasm
+      ...
+    lih/
+      reference.md
+      ansatz.qasm
+      measure_group_0.qasm
+      ...
+  v1_sent_to_experiment/       # first delivery, frozen
 ```
 
 - **`ansatz.qasm`** prepares the (approximate) ground state on the qubits. It has no
   measurements. You never run this file by itself to get a result — it exists so you can
   inspect/characterize the state-preparation part of each `measure_group_*.qasm` file in
   isolation if useful (e.g. for calibration or partial tomography).
-- **`measure_group_N.qasm`** is `ansatz.qasm` followed by (a) a short layer of single-qubit basis
-  rotations and (b) a measurement of every qubit into a classical register named `meas`. This is
+- **`measure_group_N.qasm`** is the state preparation of `ansatz.qasm` followed by (a) the
+  single-qubit basis rotations for that group, merged into the last single-qubit block so they
+  cost no extra pulses, and (b) a measurement of every qubit into a classical register named `meas`. This is
   the file you actually execute, once per group, to collect data. `meas[i]` in the file is always
   the measurement outcome of qubit `i` — there is no bit-reversal or reordering to worry about;
   read the register exactly as indexed in the QASM.
@@ -52,7 +88,8 @@ outputs/
   specific molecule it lists, file by file, exactly which Hamiltonian terms (Pauli strings) and
   coefficients that measurement file covers, the energy offset constant, and the VQE/classical
   reference energies to check your result against. You will need the numbers in that file to do
-  the post-processing below — this guide explains the *procedure*, that file gives the *numbers*.
+  the post-processing (see "Post-processing" below) — this guide explains the *procedure*, that
+  file gives the *numbers*.
 
 ## Why several measurement files per molecule?
 
@@ -63,7 +100,15 @@ are all measurable together ("qubit-wise commuting" groups), so each `measure_gr
 gives you, from one set of runs, several terms' worth of information at once. H2 needs 5 such
 groups; LiH needs 58 (10 qubits, more terms).
 
+## Post-processing
 
+For each Pauli term P of a group, ⟨P⟩ is the average over shots of the parity
+∏ (-1)^meas[i] over the qubits i where P is not `I`; a term made only of `I` counts as +1
+(no measurement needed). Then
+
+    E_total = energy_offset + sum over all terms of ( coefficient * <P> )
+
+with `energy_offset`, the terms and their coefficients taken from `reference.md`.
 
 ## Reading the Pauli labels
 
