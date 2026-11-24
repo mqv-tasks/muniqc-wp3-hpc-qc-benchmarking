@@ -16,35 +16,11 @@ Jordan-Wigner qubit layout as the Hamiltonian, and reach the exact ground-state 
 frozen-core LiH. They differ in circuit depth: compiled to the hardware format, LiH needs about
 507, 153 and 12 CZ layers respectively.
 
-Pair ansatz (``pair``)
-----------------------
-Both target problems have two active electrons (H2 in STO-3G; LiH with the Li 1s core frozen).
-Any such singlet ground state can be written as
+Pair ansatz (``pair``), on n spatial orbitals (qubits 0..n-1 alpha, n..2n-1 beta):
 
-    |psi> = sum_ij C_ij |alpha_i> |beta_j>,     C real symmetric (singlet, real orbitals),
-
-and every real symmetric C factorizes as C = U diag(s) U^T with U orthogonal. The circuit
-builds exactly that factorization, so it can represent the exact (FCI) ground state:
-
-1. **Split**: spread the alpha electron over the alpha qubits with real amplitudes s_k, using a
-   tree of "splits". The first split starts from |0...0> and costs a single CZ; the others are
-   real Givens rotations between a qubit that holds amplitude and a fresh |0> qubit.
-2. **Copy**: CNOT(k, n+k) for every orbital k. All of them act on disjoint qubit pairs, so they
-   form a single parallel CZ layer. Result: sum_k s_k |alpha_k>|beta_k>.
-3. **Orbital rotation**: the same rotation U on the alpha and on the beta register, as real Givens
-   rotations over all orbital pairs. Pairs are grouped into rounds of disjoint pairs, and the
-   alpha and beta copies of each rotation act on disjoint qubits, so they can run in parallel.
-
-With all parameters 0 the circuit prepares the Hartree-Fock determinant, so VQE starts from HF.
-
-Qubit layout matches qiskit-nature's Jordan-Wigner block ordering: qubits 0..n-1 are the alpha
-spin-orbitals, n..2n-1 the beta ones. Within a register that holds exactly one electron, the JW
-parity string between the two modes of a Givens rotation only crosses empty modes, so these
-two-qubit rotations equal the fermionic ones.
-
-The pair ansatz is much shorter than UCCSD because it only has to prepare one state from
-|0...0>, while a UCCSD circuit implements each excitation operator for every possible input.
-It is exact only for two active electrons (LiH qualifies because its Li 1s core is frozen).
+1. **Split**: Ry + X + CNOT, then Givens rotations spread the alpha electron over the alpha qubits.
+2. **Copy**: CNOT(k, n+k) for every orbital k (one parallel CZ layer).
+3. **Orbital rotation**: the same Givens rotations on the alpha and on the beta register.
 """
 
 from __future__ import annotations
