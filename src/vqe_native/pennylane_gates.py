@@ -1,7 +1,8 @@
 """PennyLane's fermionic excitation gates, translated gate by gate into Qiskit circuits.
 
-PennyLane provides hand-derived decompositions of the single- and double-excitation operators
-(``qml.SingleExcitation``: 2 CNOTs, ``qml.DoubleExcitation``: 14 CNOTs). They are much shorter than
+PennyLane's single- and double-excitation gates come with published decompositions
+(``qml.SingleExcitation``: 2 CNOTs, Arrazola et al., Quantum 6, 742 (2022), arXiv:2104.05695;
+``qml.DoubleExcitation``: 14 CNOTs, Anselmetti et al., New J. Phys. 23, 113010 (2021)). They are much shorter than
 qiskit-nature's generic construction, which exponentiates each Pauli string of the excitation
 operator with its own CNOT ladder (one double excitation -> 8 Pauli strings).
 
@@ -11,8 +12,9 @@ expressions. Everything downstream (VQE, hardware compilation, QASM 3 export) st
 
 Note: PennyLane's excitation gates are Givens rotations on the chosen qubits and leave out the
 Jordan-Wigner parity (Z) strings of the fermionic operators. They form a valid, general,
-particle-number-conserving UCCSD-type ansatz, but they are not the identical operator to
-qiskit-nature's UCCSD.
+particle-number-conserving UCCSD-type ansatz, but each excitation is not exactly the operator
+applied by qiskit-nature's UCCSD (and the angle convention differs), so circuits and converged
+angles differ.
 
 PennyLane is an optional dependency: ``uv sync --extra pennylane``.
 """

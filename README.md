@@ -35,7 +35,7 @@ Exact energies: H₂ −1.13730604 Ha (PySCF FCI), LiH −7.88217599 Ha (PySCF C
 Why the depths differ:
 
 - `uccsd-qiskit` builds each excitation by exponentiating every Pauli string of the operator with its own CNOT ladder. That works for any operator, but one double excitation alone becomes 8 Pauli strings (about 42 CZ for H₂).
-- `uccsd-pennylane` uses PennyLane's hand-derived decompositions of the same excitations (2 CNOTs per single, 14 per double). It is still a full UCCSD circuit that works for any molecule. Caveat: PennyLane's gates leave out the Jordan-Wigner parity (Z) strings, so this is a valid UCCSD-type ansatz with the same parameters, but not the identical operator.
+- `uccsd-pennylane` uses the same excitation list as `uccsd-qiskit` (same orbitals, same order, one parameter each), but builds each excitation with PennyLane's `SingleExcitation` / `DoubleExcitation` gates and their published decompositions (2 CNOTs per single, 14 per double). It still works for any molecule. Caveat: these gates are Givens rotations that leave out the Jordan-Wigner parity (Z) strings, so each excitation is not exactly the operator applied by qiskit-nature's UCCSD. It is a valid UCCSD-type ansatz, with different circuits and angle values.
 - `pair` only has to prepare one state from |0…0⟩, not implement each excitation operator for every possible input. That is why it is so much shorter, and also why it is exact only for two active electrons. (LiH qualifies because its Li 1s core is frozen: only 2 of its 4 electrons are active.)
 
 ## What is in each output folder
