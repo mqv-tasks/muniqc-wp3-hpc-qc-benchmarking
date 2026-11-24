@@ -1,7 +1,7 @@
 [project]
 name = "vqe-native"
 version = "0.1.0"
-description = "VQE circuits for H2/LiH compiled to a neutral-atom native gate set (CZ + local Paulis)"
+description = "VQE circuits for H2/LiH compiled to a neutral-atom hardware format (parallel CZ layers + global sqrt(X) with local Z)"
 authors = [
     { name = "Mario", email = "45944986+marhvera@users.noreply.github.com" }
 ]

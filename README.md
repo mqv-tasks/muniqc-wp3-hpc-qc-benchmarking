@@ -88,6 +88,8 @@ uv run python scripts/summarize_outputs.py                  # comparison table
 
 Without PennyLane (`uv sync`), the `uccsd-qiskit` and `pair` ansätze work, and the `uccsd-pennylane` tests are skipped.
 
+Generation is deterministic: after regenerating, `git status outputs/` should show no changes.
+
 ## Scope and next steps
 
 Not included here (possible next steps):

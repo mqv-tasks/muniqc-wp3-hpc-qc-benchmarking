@@ -88,7 +88,8 @@ outputs/
   specific molecule it lists, file by file, exactly which Hamiltonian terms (Pauli strings) and
   coefficients that measurement file covers, the energy offset constant, and the VQE/classical
   reference energies to check your result against. You will need the numbers in that file to do
-  the post-processing below — this guide explains the *procedure*, that file gives the *numbers*.
+  the post-processing (see "Post-processing" below) — this guide explains the *procedure*, that
+  file gives the *numbers*.
 
 ## Why several measurement files per molecule?
 
@@ -99,7 +100,15 @@ are all measurable together ("qubit-wise commuting" groups), so each `measure_gr
 gives you, from one set of runs, several terms' worth of information at once. H2 needs 5 such
 groups; LiH needs 58 (10 qubits, more terms).
 
+## Post-processing
 
+For each Pauli term P of a group, ⟨P⟩ is the average over shots of the parity
+∏ (-1)^meas[i] over the qubits i where P is not `I`; a term made only of `I` counts as +1
+(no measurement needed). Then
+
+    E_total = energy_offset + sum over all terms of ( coefficient * <P> )
+
+with `energy_offset`, the terms and their coefficients taken from `reference.md`.
 
 ## Reading the Pauli labels
 
